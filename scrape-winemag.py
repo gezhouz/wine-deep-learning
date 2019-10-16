@@ -35,7 +35,7 @@ class Scraper():
         self.start_time = time.time()
         self.cross_process_review_count = 0
         self.estimated_total_reviews = (pages_to_scrape[1] + 1 - pages_to_scrape[0]) * 30
-
+        # handle the multi processing
         if num_jobs > 1:
             self.multiprocessing = True
             self.worker_pool = Pool(num_jobs)
@@ -46,7 +46,9 @@ class Scraper():
         if self.clear_old_data:
             self.clear_data_dir()
         if self.multiprocessing:
+            # find the url rule to create the list which is going to be scraped
             link_list = [BASE_URL.format(page) for page in range(self.pages_to_scrape[0],self.pages_to_scrape[1] + 1)]
+            # scrape_page only have one input page_url
             records = self.worker_pool.map(self.scrape_page, link_list)
             self.worker_pool.terminate()
             self.worker_pool.join()
@@ -54,13 +56,17 @@ class Scraper():
             for page in range(self.pages_to_scrape[0], self.pages_to_scrape[1] + 1):
                 self.scrape_page(BASE_URL.format(page))
         print('Scrape finished...')
+        # condense_data() : merge all the json file into one. 
         self.condense_data()
 
+    # detail scraping on each page
     def scrape_page(self, page_url, isolated_review_count=0, retry_count=0):
+        #input is page_url
         scrape_data = []
         try:
             response = self.session.get(page_url, headers=HEADERS)
         except:
+            # if response failed restart session and retry scrape_page total and trial <3 
             retry_count += 1
             if retry_count <= 3:
                 self.session = requests.Session()
@@ -264,6 +270,7 @@ class Scraper():
 
     def clear_data_dir(self):
         try:
+            # Delete all files in a directory & sub-directories recursively using shutil.rmtree()
             shutil.rmtree(DATA_DIR)
         except FileNotFoundError:
             pass
@@ -277,8 +284,10 @@ class Scraper():
     def condense_data(self):
         print('Condensing Data...')
         condensed_data = []
+        # create a list to find all the json files in the DATA_DIR 
         all_files = glob.glob('{}/*.json'.format(DATA_DIR))
         for file in all_files:
+            #store all the json file data into condensed_data list
             with open(file, 'rb') as fin:
                 condensed_data += json.load(fin)
         print(len(condensed_data))
